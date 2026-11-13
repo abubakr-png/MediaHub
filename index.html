@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MediaHub</title>
+    <meta name="description" content="MediaHub — быстро скачивайте изображения, видео, аудио и открывайте Spotify-плеер из ссылок." />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand" aria-label="MediaHub logo">
+        <span class="brand-mark">M</span>
+        <span>MediaHub</span>
+      </div>
+      <nav>
+        <a href="#downloads">Скачать</a>
+        <a href="#preview">Предпросмотр</a>
+        <a href="#spotify">Spotify</a>
+        <a href="#about">О сервисе</a>
+      </nav>
+      <a class="top-cta" href="#downloads">Начать</a>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <div class="eyebrow">MEDIA DELIVERY</div>
+          <h1>Загружай <span>фото, видео и музыку</span> прямо из ссылки.</h1>
+          <p>
+            MediaHub помогает быстро сохранять медиафайлы, смотреть превью перед загрузкой и открывать треки
+            Spotify без лишних шагов.
+          </p>
+          <a class="primary-btn" href="#downloads">Попробовать бесплатно</a>
+        </div>
+
+        <div class="hero-art" aria-hidden="true">
+          <div class="orb orb-one"></div>
+          <div class="orb orb-two"></div>
+
+          <div class="floating-card card-image">
+            <span>🖼️</span>
+            <b>Фото</b>
+            <small>jpg · png · webp</small>
+          </div>
+
+          <div class="floating-card card-video">
+            <span>🎬</span>
+            <b>Видео</b>
+            <small>mp4 · mov</small>
+          </div>
+
+          <div class="floating-card card-music">
+            <span>🎵</span>
+            <b>Музыка</b>
+            <small>mp3 · wav</small>
+          </div>
+        </div>
+      </section>
+
+      <div class="ad-slot" data-ad-slot="top">
+        <span>РЕКЛАМА</span>
+        <p>Показывается после согласия на рекламу</p>
+      </div>
+
+      <section id="downloads" class="section">
+        <div class="section-heading">
+          <div>
+            <div class="eyebrow">TOOLS</div>
+            <h2>Медиа-утилиты</h2>
+          </div>
+          <div class="live-pill"><i></i>Работает в браузере</div>
+        </div>
+
+        <div class="tool-grid">
+          <article class="tool-card featured">
+            <div class="tool-icon purple">🖼️</div>
+            <div class="tool-tag">IMAGE</div>
+            <h3>Скачать фото</h3>
+            <p>Копируйте прямую ссылку на изображение, и сервис сохранит его на ваш компьютер.</p>
+            <label for="imageUrl">Ссылка</label>
+            <div class="input-row">
+              <input id="imageUrl" type="url" placeholder="https://example.com/image.jpg" />
+              <button id="imageBtn" type="button">Скачать</button>
+            </div>
+            <p id="imageStatus" class="hint">Поддерживаются JPG, PNG, WebP и другие изображения.</p>
+          </article>
+
+          <article class="tool-card">
+            <div class="tool-icon blue">🎬</div>
+            <div class="tool-tag">VIDEO / AUDIO</div>
+            <h3>Предпросмотр и загрузка</h3>
+            <p>Проверяйте, что ссылка ведёт на медиафайл, и сразу скачивайте его через сервер.</p>
+            <label for="mediaUrl">Ссылка</label>
+            <div class="input-row">
+              <input id="mediaUrl" type="url" placeholder="https://example.com/video.mp4" />
+              <button id="mediaBtn" type="button">Открыть</button>
+            </div>
+            <div id="mediaPreview" aria-live="polite"></div>
+            <p id="mediaStatus" class="hint">Можно вставлять ссылки на фото, видео и аудио.</p>
+          </article>
+
+          <article class="tool-card">
+            <div class="tool-icon green">🎵</div>
+            <div class="tool-tag">SPOTIFY</div>
+            <h3>Spotify-плеер</h3>
+            <p>Вставьте ссылку на трек, альбом или плейлист — мы покажем виджет без перехода из сайта.</p>
+            <label for="spotifyUrl">Ссылка Spotify</label>
+            <div class="input-row">
+              <input id="spotifyUrl" type="url" placeholder="https://open.spotify.com/track/..." />
+              <button id="spotifyBtn" type="button">Показать</button>
+            </div>
+            <div id="spotifyPlayer" aria-live="polite"></div>
+            <p id="spotifyStatus" class="hint">Поддерживаются треки и плейлисты.</p>
+          </article>
+
+          <article class="tool-card">
+            <div class="tool-icon orange">🔗</div>
+            <div class="tool-tag">SOCIAL</div>
+            <h3>Открыть публикацию</h3>
+            <p>Если нужно посмотреть исходный пост в социальной сети, сервис откроет его в новой вкладке.</p>
+            <label for="socialUrl">Ссылка</label>
+            <div class="input-row">
+              <input id="socialUrl" type="url" placeholder="https://vk.com/..." />
+              <button id="socialBtn" type="button">Открыть</button>
+            </div>
+            <p id="socialStatus" class="hint">Ссылки на посты и публикации в сетях.</p>
+          </article>
+        </div>
+      </section>
+
+      <div class="ad-slot ad-wide" data-ad-slot="mid">
+        <span>РЕКЛАМА</span>
+        <p>Блок для рекламного слота</p>
+      </div>
+
+      <section id="about" class="section about">
+        <div class="eyebrow">WHY MEDIAHUB</div>
+        <h2>Удобный буфер обмена медиа прямо в браузере</h2>
+        <div class="benefits">
+          <div>
+            <b>01</b>
+            <h3>Быстрый доступ</h3>
+            <p>Нужна одна ссылка — не нужно идти в соцсети или файловые хранилища.</p>
+          </div>
+          <div>
+            <b>02</b>
+            <h3>Приватный сервер</h3>
+            <p>Директные загрузки идут через сервер MediaHub, что помогает обойти часть ограничений CORS.</p>
+          </div>
+          <div>
+            <b>03</b>
+            <h3>Готово к деплою</h3>
+            <p>Сайт работает как статическая страница с Node-сервером для безопасной маршрутизации файлов.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div>© <span id="year"></span> MediaHub</div>
+      <div><a href="privacy.html">Политика конфиденциальности</a></div>
+    </footer>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script>
+      window.AD_CONFIG = {
+        client: "",
+        slots: {
+          top: "1234567890",
+          mid: "0987654321"
+        }
+      };
+    </script>
+    <script src="script.js"></script>
+    <script src="ads.js"></script>
+  </body>
+</html>
