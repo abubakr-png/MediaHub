@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MediaHub</title>
-    <meta name="description" content="MediaHub — быстро скачивайте изображения, видео, аудио и открывайте Spotify-плеер из ссылок." />
+    <title>MediaHub — загрузка медиа по прямой ссылке</title>
+    <meta name="description" content="MediaHub — скачивайте фото, видео и аудио по прямым публичным ссылкам, смотрите превью и открывайте Spotify-плеер." />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -26,50 +26,29 @@
       <section class="hero">
         <div class="hero-copy">
           <div class="eyebrow">MEDIA DELIVERY</div>
-          <h1>Загружай <span>фото, видео и музыку</span> прямо из ссылки.</h1>
-          <p>
-            MediaHub помогает быстро сохранять медиафайлы, смотреть превью перед загрузкой и открывать треки
-            Spotify без лишних шагов.
-          </p>
+          <h1>Загружай <span>фото, видео и музыку</span> по прямой ссылке.</h1>
+          <p>MediaHub скачивает публичные медиафайлы, показывает превью и открывает Spotify-плеер. Вставь прямую ссылку на файл — сервер передаст его браузеру потоково.</p>
           <a class="primary-btn" href="#downloads">Попробовать бесплатно</a>
         </div>
 
         <div class="hero-art" aria-hidden="true">
           <div class="orb orb-one"></div>
           <div class="orb orb-two"></div>
-
-          <div class="floating-card card-image">
-            <span>🖼️</span>
-            <b>Фото</b>
-            <small>jpg · png · webp</small>
-          </div>
-
-          <div class="floating-card card-video">
-            <span>🎬</span>
-            <b>Видео</b>
-            <small>mp4 · mov</small>
-          </div>
-
-          <div class="floating-card card-music">
-            <span>🎵</span>
-            <b>Музыка</b>
-            <small>mp3 · wav</small>
-          </div>
+          <div class="floating-card card-image"><span>🖼️</span><b>Фото</b><small>jpg · png · webp</small></div>
+          <div class="floating-card card-video"><span>🎬</span><b>Видео</b><small>mp4 · webm · mov</small></div>
+          <div class="floating-card card-music"><span>🎵</span><b>Музыка</b><small>mp3 · wav · ogg</small></div>
         </div>
       </section>
 
       <div class="ad-slot" data-ad-slot="top">
         <span>РЕКЛАМА</span>
-        <p>Показывается после согласия на рекламу</p>
+        <p>Реклама загружается только после согласия</p>
       </div>
 
       <section id="downloads" class="section">
         <div class="section-heading">
-          <div>
-            <div class="eyebrow">TOOLS</div>
-            <h2>Медиа-утилиты</h2>
-          </div>
-          <div class="live-pill"><i></i>Работает в браузере</div>
+          <div><div class="eyebrow">TOOLS</div><h2>Медиа-утилиты</h2></div>
+          <div class="live-pill"><i></i>Прямые ссылки на медиа</div>
         </div>
 
         <div class="tool-grid">
@@ -77,101 +56,67 @@
             <div class="tool-icon purple">🖼️</div>
             <div class="tool-tag">IMAGE</div>
             <h3>Скачать фото</h3>
-            <p>Копируйте прямую ссылку на изображение, и сервис сохранит его на ваш компьютер.</p>
-            <label for="imageUrl">Ссылка</label>
-            <div class="input-row">
-              <input id="imageUrl" type="url" placeholder="https://example.com/image.jpg" />
-              <button id="imageBtn" type="button">Скачать</button>
-            </div>
-            <p id="imageStatus" class="hint">Поддерживаются JPG, PNG, WebP и другие изображения.</p>
+            <p>Вставь прямую публичную ссылку на изображение, чтобы сохранить файл.</p>
+            <label for="imageUrl">Ссылка на фото</label>
+            <div class="input-row"><input id="imageUrl" type="url" placeholder="https://example.com/image.jpg" autocomplete="url" /><button id="imageBtn" type="button">Скачать</button></div>
+            <p id="imageStatus" class="hint" aria-live="polite">Поддерживаются JPG, PNG, GIF, WebP и другие изо��ражения.</p>
           </article>
 
-          <article class="tool-card">
+          <article class="tool-card" id="preview">
             <div class="tool-icon blue">🎬</div>
             <div class="tool-tag">VIDEO / AUDIO</div>
-            <h3>Предпросмотр и загрузка</h3>
-            <p>Проверяйте, что ссылка ведёт на медиафайл, и сразу скачивайте его через сервер.</p>
-            <label for="mediaUrl">Ссылка</label>
-            <div class="input-row">
-              <input id="mediaUrl" type="url" placeholder="https://example.com/video.mp4" />
-              <button id="mediaBtn" type="button">Открыть</button>
-            </div>
+            <h3>Видео и музыка</h3>
+            <p>Скачивай прямые ссылки на видео- и аудиофайлы; превью появится, если формат поддерживается браузером.</p>
+            <label for="mediaUrl">Ссылка на медиафайл</label>
+            <div class="input-row"><input id="mediaUrl" type="url" placeholder="https://example.com/video.mp4" autocomplete="url" /><button id="mediaBtn" type="button">Скачать</button></div>
             <div id="mediaPreview" aria-live="polite"></div>
-            <p id="mediaStatus" class="hint">Можно вставлять ссылки на фото, видео и аудио.</p>
+            <p id="mediaStatus" class="hint" aria-live="polite">Прямая ссылка должна вести на файл, а не на страницу публикации.</p>
           </article>
 
-          <article class="tool-card">
+          <article class="tool-card" id="spotify">
             <div class="tool-icon green">🎵</div>
             <div class="tool-tag">SPOTIFY</div>
             <h3>Spotify-плеер</h3>
-            <p>Вставьте ссылку на трек, альбом или плейлист — мы покажем виджет без перехода из сайта.</p>
+            <p>Вставь ссылку на трек, альбом или плейлист — откроется официальный виджет Spotify.</p>
             <label for="spotifyUrl">Ссылка Spotify</label>
-            <div class="input-row">
-              <input id="spotifyUrl" type="url" placeholder="https://open.spotify.com/track/..." />
-              <button id="spotifyBtn" type="button">Показать</button>
-            </div>
+            <div class="input-row"><input id="spotifyUrl" type="url" placeholder="https://open.spotify.com/track/..." autocomplete="url" /><button id="spotifyBtn" type="button">Показать</button></div>
             <div id="spotifyPlayer" aria-live="polite"></div>
-            <p id="spotifyStatus" class="hint">Поддерживаются треки и плейлисты.</p>
+            <p id="spotifyStatus" class="hint" aria-live="polite">Скачивание из Spotify не поддерживается; используй официальную офлайн-функцию сервиса.</p>
           </article>
 
           <article class="tool-card">
             <div class="tool-icon orange">🔗</div>
             <div class="tool-tag">SOCIAL</div>
             <h3>Открыть публикацию</h3>
-            <p>Если нужно посмотреть исходный пост в социальной сети, сервис откроет его в новой вкладке.</p>
-            <label for="socialUrl">Ссылка</label>
-            <div class="input-row">
-              <input id="socialUrl" type="url" placeholder="https://vk.com/..." />
-              <button id="socialBtn" type="button">Открыть</button>
-            </div>
-            <p id="socialStatus" class="hint">Ссылки на посты и публикации в сетях.</p>
+            <p>Открой исходную публикацию в новой вкладке. Скачивание страниц соцсетей не поддерживается.</p>
+            <label for="socialUrl">Ссылка на публикацию</label>
+            <div class="input-row"><input id="socialUrl" type="url" placeholder="https://example.com/post" autocomplete="url" /><button id="socialBtn" type="button">Открыть</button></div>
+            <p id="socialStatus" class="hint" aria-live="polite">Используй только ссылки, которые имеешь право открывать.</p>
           </article>
         </div>
       </section>
 
-      <div class="ad-slot ad-wide" data-ad-slot="mid">
-        <span>РЕКЛАМА</span>
-        <p>Блок для рекламного слота</p>
-      </div>
+      <div class="ad-slot ad-wide" data-ad-slot="mid"><span>РЕКЛАМА</span><p>Рекламный блок</p></div>
 
       <section id="about" class="section about">
         <div class="eyebrow">WHY MEDIAHUB</div>
-        <h2>Удобный буфер обмена медиа прямо в браузере</h2>
+        <h2>Просто и безопасно</h2>
         <div class="benefits">
-          <div>
-            <b>01</b>
-            <h3>Быстрый доступ</h3>
-            <p>Нужна одна ссылка — не нужно идти в соцсети или файловые хранилища.</p>
-          </div>
-          <div>
-            <b>02</b>
-            <h3>Приватный сервер</h3>
-            <p>Директные загрузки идут через сервер MediaHub, что помогает обойти часть ограничений CORS.</p>
-          </div>
-          <div>
-            <b>03</b>
-            <h3>Готово к деплою</h3>
-            <p>Сайт работает как статическая страница с Node-сервером для безопасной маршрутизации файлов.</p>
-          </div>
+          <div><b>01</b><h3>Потоковая загрузка</h3><p>Файл передаётся браузеру без сохранения на сервере и без загрузки целиком в память страницы.</p></div>
+          <div><b>02</b><h3>Прямые ссылки</h3><p>Загрузка работает с публичными ссылками непосредственно на фото, видео или аудиофайл.</p></div>
+          <div><b>03</b><h3>Уважение к ограничениям</h3><p>Сервис не обходит DRM, авторизацию, платный доступ или ограничения соцсетей и стриминговых платформ.</p></div>
         </div>
       </section>
     </main>
 
     <footer>
       <div>© <span id="year"></span> MediaHub</div>
-      <div><a href="privacy.html">Политика конфиденциальности</a></div>
+      <div><a href="/privacy">Политика конфиденциальности</a></div>
     </footer>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-
     <script>
-      window.AD_CONFIG = {
-        client: "",
-        slots: {
-          top: "1234567890",
-          mid: "0987654321"
-        }
-      };
+      window.AD_CONFIG = { client: "", slots: { top: "1234567890", mid: "0987654321" } };
     </script>
     <script src="script.js"></script>
     <script src="ads.js"></script>

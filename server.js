@@ -1,189 +1,183 @@
-// MediaHub server — без зависимостей, Node.js 18+. Запуск: node server.js
-const http = require("http"), https = require("https"), fs = require("fs"), path = require("path");
-const dns = require("dns").promises, net = require("net");
+// MediaHub server — без зависимостей, Node.js 18+. Запуск: npm start
+const http = require("http");
+const https = require("https");
+const fs = require("fs");
+const path = require("path");
+const dns = require("dns").promises;
+const net = require("net");
 
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT) || 3000;
 const MAX_BYTES = 200 * 1024 * 1024;
-const ALLOWED = /^(image|video|audio)\//;
-const hits = new Map();
+const MEDIA_TYPE = /^(image|video|audio)\//i;
+const MEDIA_EXT = /\.(?:avif|bmp|gif|jpe?g|png|svg|webp|aac|flac|m4a|mp3|oga|ogg|opus|wav|avi|m4v|mkv|mov|mp4|mpeg|mpg|webm)$/i;
+const RATE_LIMIT = new Map();
 
 function isPrivate(ip) {
-  if (net.isIPv6(ip)) {
-    const l = ip.toLowerCase();
-    if (l.startsWith("::ffff:")) return isPrivate(l.slice(7));
-    return l === "::1" || l === "::" || /^(fc|fd|fe[89ab])/.test(l);
+  if (net.isIPv4(ip)) {
+    const [a, b, c] = ip.split(".").map(Number);
+    return a === 0 || a === 10 || a === 127 || a >= 224 ||
+      (a === 100 && b >= 64 && b <= 127) ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && (b === 168 || (b === 0 && c === 0))) ||
+      (a === 198 && (b === 18 || b === 19 || b === 51)) ||
+      (a === 203 && b === 0 && c === 113);
   }
-  const [a, b] = ip.split(".").map(Number);
-  return a === 0 || a === 10 || a === 127 || a >= 224 || (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127);
+
+  if (!net.isIPv6(ip)) return true;
+  const normalized = ip.toLowerCase();
+  if (normalized.startsWith("::ffff:")) {
+    const mapped = normalized.slice(7);
+    if (net.isIPv4(mapped)) return isPrivate(mapped);
+    return true;
+  }
+  const first = parseInt(normalized.split(":")[0] || "0", 16);
+  // Only global-unicast IPv6 (2000::/3) is allowed. Documentation space is excluded.
+  return first < 0x2000 || first > 0x3fff || normalized.startsWith("2001:db8:");
 }
 
-async function open(urlStr, redirects = 0) {
-  const url = new URL(urlStr);
-  if (!/^https?:$/.test(url.protocol)) throw new Error("Только http(s)-ссылки");
+async function requestPublicMedia(urlString, redirects = 0) {
+  let url;
+  try { url = new URL(urlString); } catch { throw new Error("Укажи корректную ссылку."); }
+  if (!/^https?:$/.test(url.protocol) || url.username || url.password) {
+    throw new Error("Разрешены только публичные HTTP(S)-ссылки без логина и пароля.");
+  }
 
-  const host = url.hostname.replace(/^\[|\]$/g, "");
-  const addrs = net.isIP(host) ? [{ address: host, family: net.isIP(host) }] : await dns.lookup(host, { all: true });
-  if (!addrs.length || addrs.some((a) => isPrivate(a.address))) throw new Error("Адрес не разрешён");
+  const hostname = url.hostname.replace(/^\[|\]$/g, "");
+  const addresses = net.isIP(hostname)
+    ? [{ address: hostname, family: net.isIP(hostname) }]
+    : await dns.lookup(hostname, { all: true });
+  if (!addresses.length || addresses.some(({ address }) => isPrivate(address))) {
+    throw new Error("Адрес назначения не разрешён.");
+  }
 
-  const target = addrs[0];
-  const lib = url.protocol === "https:" ? https : http;
-
-  const res = await new Promise((resolve, reject) => {
-    const req = lib.get(url, {
-      timeout: 15000,
-      headers: { "User-Agent": "MediaHub/1.0" },
-      lookup: (h, o, cb) => o && o.all ? cb(null, [target]) : cb(null, target.address, target.family),
+  const destination = addresses[0];
+  const transport = url.protocol === "https:" ? https : http;
+  const response = await new Promise((resolve, reject) => {
+    const outgoing = transport.get(url, {
+      timeout: 20000,
+      headers: { "User-Agent": "MediaHub/1.0", Accept: "image/*,video/*,audio/*,application/octet-stream;q=0.8" },
+      lookup: (_host, options, callback) => options && options.all
+        ? callback(null, [destination])
+        : callback(null, destination.address, destination.family),
     }, resolve);
-
-    req.on("timeout", () => req.destroy(new Error("Таймаут")));
-    req.on("error", reject);
+    outgoing.on("timeout", () => outgoing.destroy(new Error("Таймаут соединения.")));
+    outgoing.on("error", reject);
   });
 
-  if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-    res.resume();
-    if (redirects >= 3) throw new Error("Слишком много перенаправлений");
-    return open(new URL(res.headers.location, url).href, redirects + 1);
+  if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+    response.resume();
+    if (redirects >= 3) throw new Error("Слишком много перенаправлений.");
+    return requestPublicMedia(new URL(response.headers.location, url).href, redirects + 1);
   }
 
-  return { res, url };
+  return { response, url };
 }
 
-async function handleDownload(req, reply, query) {
-  const ip = req.socket.remoteAddress;
+function sendText(res, status, message) {
+  if (res.headersSent || res.destroyed) return;
+  res.writeHead(status, { "Content-Type": "text/plain; charset=utf-8", "X-Content-Type-Options": "nosniff" });
+  res.end(message);
+}
+
+async function handleDownload(req, res, query) {
+  const ip = req.socket.remoteAddress || "unknown";
   const now = Date.now();
-  const list = (hits.get(ip) || []).filter((t) => now - t < 60000);
+  const recent = (RATE_LIMIT.get(ip) || []).filter((time) => now - time < 60000);
+  if (recent.length >= 30) return sendText(res, 429, "Слишком много запросов. Подожди минуту.");
+  recent.push(now);
+  RATE_LIMIT.set(ip, recent);
 
-  if (list.length >= 30) {
-    return reply(429, "Слишком много запросов, подождите минуту.");
-  }
-
-  list.push(now);
-  hits.set(ip, list);
-
+  let upstream;
   try {
-    const { res, url } = await open(query.get("url") || "");
-    const type = (res.headers["content-type"] || "").split(";")[0].trim();
-    const size = Number(res.headers["content-length"] || 0);
+    const result = await requestPublicMedia(query.get("url") || "");
+    upstream = result.response;
+    const { url } = result;
+    const contentType = String(upstream.headers["content-type"] || "").split(";")[0].trim().toLowerCase();
+    const isMedia = MEDIA_TYPE.test(contentType) || (contentType === "application/octet-stream" && MEDIA_EXT.test(url.pathname));
+    const size = Number(upstream.headers["content-length"] || 0);
 
-    if (res.statusCode !== 200) {
-      res.resume();
-      return reply(502, "Сайт ответил кодом " + res.statusCode);
+    if (upstream.statusCode !== 200) {
+      upstream.resume();
+      return sendText(res, 502, `Источник ответил кодом ${upstream.statusCode || "unknown"}.`);
     }
-
-    if (!ALLOWED.test(type)) {
-      res.resume();
-      return reply(415, "По ссылке не найден фото/видео/аудио файл.");
+    if (!isMedia) {
+      upstream.destroy();
+      return sendText(res, 415, "Ссылка должна вести напрямую на фото, видео или аудиофайл; страницы соцсетей и стриминговых сервисов не поддерживаются.");
     }
-
     if (size > MAX_BYTES) {
-      res.resume();
-      return reply(413, "Файл слишком большой.");
+      upstream.destroy();
+      return sendText(res, 413, "Файл больше допустимого лимита 200 МБ.");
     }
 
-    const name = decodeURIComponent(url.pathname.split("/").pop() || "mediahub-file")
-      .replace(/[^\w.\-А-Яа-яЁё ]/g, "_");
+    let filename = "mediahub-file";
+    try { filename = decodeURIComponent(url.pathname.split("/").pop() || filename); } catch {}
+    filename = filename.replace(/[\\/:*?"<>|\u0000-\u001f]/g, "_").slice(0, 150) || "mediahub-file";
 
     const headers = {
-      "Content-Type": type,
-      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(name)}`,
+      "Content-Type": contentType || "application/octet-stream",
+      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
+      "X-Content-Type-Options": "nosniff",
+      "Cache-Control": "no-store",
     };
-
     if (size) headers["Content-Length"] = size;
+    res.writeHead(200, headers);
 
-    reply.raw.writeHead(200, headers);
-
-    let got = 0;
-    res.on("data", (chunk) => {
-      got += chunk.length;
-      if (got > MAX_BYTES) {
+    let received = 0;
+    upstream.on("data", (chunk) => {
+      received += chunk.length;
+      if (received > MAX_BYTES) {
+        upstream.destroy();
         res.destroy();
-        reply.raw.destroy();
       }
     });
-
-    res.pipe(reply.raw);
-  } catch (e) {
-    reply(400, e.message || "Ошибка загрузки");
+    upstream.on("error", () => res.destroy());
+    req.on("aborted", () => upstream.destroy());
+    res.on("close", () => { if (!res.writableEnded) upstream.destroy(); });
+    upstream.pipe(res);
+  } catch (error) {
+    if (upstream && !upstream.destroyed) upstream.destroy();
+    sendText(res, 400, error.message || "Не удалось получить файл.");
   }
 }
 
-function sendStaticFile(req, res, pathname) {
-  const normalized = pathname === "/" ? "/index.html" : pathname;
-  const route = normalized === "/privacy" ? "/privacy.html" : normalized;
-  const filePath = path.resolve(__dirname, route.replace(/^\/+/, ""));
+const MIME = {
+  ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8",
+  ".json": "application/json; charset=utf-8", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+  ".svg": "image/svg+xml", ".gif": "image/gif", ".webp": "image/webp", ".ico": "image/x-icon",
+  ".txt": "text/plain; charset=utf-8", ".md": "text/plain; charset=utf-8",
+};
 
-  if (!filePath.startsWith(__dirname) || filePath.includes("..")) {
-    res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
-    res.end("Forbidden");
-    return;
+function sendStatic(res, pathname) {
+  let decoded;
+  try { decoded = decodeURIComponent(pathname); } catch { return sendText(res, 400, "Некорректный путь."); }
+  if (decoded === "/privacy") decoded = "/privacy.html";
+  const root = path.resolve(__dirname);
+  const file = path.resolve(root, `.${decoded === "/" ? "/index.html" : decoded}`);
+  const relative = path.relative(root, file);
+  if (relative.startsWith("..") || path.isAbsolute(relative) || /(^|[\\/])\./.test(relative) || ["server.js", "package.json"].includes(path.basename(file))) {
+    return sendText(res, 403, "Forbidden");
   }
 
-  fs.stat(filePath, (err, stats) => {
-    if (err || !stats.isFile()) {
-      res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
-      res.end("Not found");
-      return;
-    }
-
-    const ext = path.extname(filePath).toLowerCase();
-    const mime = {
-      ".html": "text/html; charset=utf-8",
-      ".css": "text/css",
-      ".js": "text/javascript",
-      ".json": "application/json",
-      ".png": "image/png",
-      ".jpg": "image/jpeg",
-      ".jpeg": "image/jpeg",
-      ".svg": "image/svg+xml",
-      ".gif": "image/gif",
-      ".ico": "image/x-icon",
-      ".txt": "text/plain; charset=utf-8",
-      ".md": "text/markdown; charset=utf-8",
-    };
-
-    fs.readFile(filePath, (readErr, data) => {
-      if (readErr) {
-        res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
-        res.end("Read error");
-        return;
-      }
-
-      res.writeHead(200, { "Content-Type": mime[ext] || "application/octet-stream" });
-      res.end(data);
-    });
+  fs.stat(file, (statError, stats) => {
+    if (statError || !stats.isFile()) return sendText(res, 404, "Not found");
+    res.writeHead(200, { "Content-Type": MIME[path.extname(file).toLowerCase()] || "application/octet-stream", "X-Content-Type-Options": "nosniff" });
+    fs.createReadStream(file).on("error", () => { if (!res.headersSent) sendText(res, 500, "Не удалось прочитать файл."); else res.destroy(); }).pipe(res);
   });
 }
-
-const MIME = { ".html": "text/html; charset=utf-8", ".css": "text/css", ".js": "text/javascript", ".md": "text/plain; charset=utf-8", ".txt": "text/plain; charset=utf-8" };
 
 http.createServer((req, res) => {
-  const u = new URL(req.url, "http://x");
-  const reply = (code, msg) => {
-    res.writeHead(code, { "Content-Type": "text/plain; charset=utf-8" });
-    res.end(msg);
-  };
-
-  reply.raw = res;
-
-  if (u.pathname === "/api/download") return handleDownload(req, reply, u.searchParams);
-
-  const staticRequest = u.pathname === "/privacy" || u.pathname === "/privacy.html" || u.pathname === "/" || !u.pathname.includes(".");
-  if (staticRequest) {
-    return sendStaticFile(req, res, u.pathname);
+  let url;
+  try { url = new URL(req.url, "http://localhost"); } catch { return sendText(res, 400, "Некорректный запрос."); }
+  if (url.pathname === "/api/download") {
+    if (req.method !== "GET") return sendText(res, 405, "Метод не поддерживается.");
+    return handleDownload(req, res, url.searchParams);
   }
-
-  const file = path.join(__dirname, u.pathname === "/" ? "index.html" : path.normalize(u.pathname));
-  if (!file.startsWith(__dirname) || file.endsWith("server.js")) {
-    return reply(403, "Forbidden");
+  if (req.method !== "GET" && req.method !== "HEAD") return sendText(res, 405, "Метод не поддерживается.");
+  if (req.method === "HEAD") {
+    const originalWriteHead = res.writeHead.bind(res);
+    res.writeHead = (...args) => originalWriteHead(...args);
+    return sendStatic(res, url.pathname);
   }
-
-  fs.readFile(file, (err, data) => {
-    if (err) {
-      return reply(404, "Not found");
-    }
-
-    res.writeHead(200, { "Content-Type": MIME[path.extname(file)] || "application/octet-stream" });
-    res.end(data);
-  });
-}).listen(PORT, () => console.log("MediaHub: http://localhost:" + PORT));
+  sendStatic(res, url.pathname);
+}).listen(PORT, "0.0.0.0", () => console.log(`MediaHub listening on port ${PORT}`));
